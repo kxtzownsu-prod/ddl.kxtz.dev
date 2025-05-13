@@ -129,6 +129,10 @@ app.get('/api/v1/files', async (req, res) => {
   }
 });
 
+app.options('/api/ping', async (req, res) => {
+	return res.status(200).json({ pong: 'Pong!' });
+});
+
 app.get('/api/ping', async (req, res) => {
 	return res.status(200).json({ pong: 'Pong!' });
 });
