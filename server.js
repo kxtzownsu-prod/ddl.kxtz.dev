@@ -129,6 +129,10 @@ app.get('/api/v1/files', async (req, res) => {
   }
 });
 
+app.get('/api/ping', async (req, res) => {
+	return res.status(200).json({ pong: 'Pong!' });
+});
+
 app.get('/api/v1/download', async (req, res) => {
   try {
     const filePath = sanitizePath(req.query.path);

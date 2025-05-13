@@ -1,0 +1,30 @@
+
+# dont conflict with the original Caddy
+{
+    admin :2020
+}
+
+# use port 81 since main caddy is port 80
+http://ddl-bak.kxtz.dev:81 {
+	reverse_proxy localhost:3069 {
+		header_up * *
+		header_down * *
+	}
+
+	log {
+		output file /srv/html/log/ddl-bak.kxtz.dev.log
+		format json
+	}
+
+	encode gzip
+
+	route {
+		@throttle path /*
+		rate_limit @throttle {
+			key {remote_ip}
+			rate 200mbit
+			zone_size 100
+			reject_status 429
+		}
+	}
+}
