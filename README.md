@@ -20,6 +20,13 @@ bash docker.sh
 
 and wait for it to finish, now the file server should be running on localhost:3069!
 
+## Giving credits
+If you use this project, according to the AGPL you must open source it.
+
+If you are using a version of the project which falls before commit [7f6138a26150f74c51099ed6a5fd5df971960010](https://github.com/kxtzownsu-prod/ddl.kxtz.dev/commit/7f6138a26150f74c51099ed6a5fd5df971960010), then, from my limited knowledge of licenses, would fall under "All Rights Reserved" and I require you to update to the newest version which requires the AGPLv3.
+
+If I'm wrong about the A.R.R, then please make an issue or PR and correct me.
+
 ## Credits
 
 kxtzownsu - writing it all
