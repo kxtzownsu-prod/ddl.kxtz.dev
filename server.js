@@ -6,12 +6,35 @@ const createReadStream = require("fs").createReadStream;
 const path = require("path");
 const cors = require("cors");
 const { exec } = require("child_process");
-
 const app = express();
 const port = 3069;
-app.use(cors());
-
 const BASE_DIR = path.resolve("/srv/html/dl.kxtz.dev/files");
+const CONFIG = {};
+try {
+	const configText = require("fs").readFileSync(".config", "utf-8");
+	configText.split("\n").forEach((line) => {
+		const [key, val] = line.split("=");
+		if (key && val) CONFIG[key.trim()] = val.trim();
+	});
+} catch {
+	console.warn("No .config file found, proceeding with defaults");
+}
+
+function LOG(message) {
+	if (CONFIG["CONFIG_LOGGING"] === "true") {
+		const now = new Date().toISOString();
+		console.log(`[${now}] ${message}`);
+	}
+}
+
+app.use(cors());
+app.use((req, res, next) => {
+	if (CONFIG["CONFIG_LOGGING"] === "true") {
+		LOG(`${req.method} ${req.originalUrl} from ${req.socket.remoteAddress}`);
+	}
+	next();
+});
+
 
 function sanitizePath(relativePath) {
 	const sanitizedPath = path
@@ -118,7 +141,7 @@ async function getFileMetadata(dirPath) {
 	}
 }
 
-app.get("/api/v1/files", async (req, res) => {
+app.get(`/api/${CONFIG["CONFIG_APIVERSION"]}/files`, async (req, res) => {
 	try {
 		const dirPath = sanitizePath(req.query.path);
 		const metadata = await getFileMetadata(dirPath);
@@ -132,15 +155,15 @@ app.get("/api/v1/files", async (req, res) => {
 	}
 });
 
-app.options("/api/ping", async (req, res) => {
+app.options(`/api/ping`, async (req, res) => {
 	return res.status(200).json({ pong: "Pong!" });
 });
 
-app.get("/api/ping", async (req, res) => {
+app.get(`/api/ping`, async (req, res) => {
 	return res.status(200).json({ pong: "Pong!" });
 });
 
-app.get("/api/v1/download", async (req, res) => {
+app.get(`/api/${CONFIG["CONFIG_APIVERSION"]}/download`, async (req, res) => {
 	try {
 		const filePath = sanitizePath(req.query.path);
 		await fs.access(filePath);
@@ -149,7 +172,7 @@ app.get("/api/v1/download", async (req, res) => {
 		const shouldThrottle = registerDownload(ip, "download", 5);
 
 		if (shouldThrottle) {
-			console.log(`Throttling /api/v1/download for ${ip}`);
+			console.log(`Throttling /api/${CONFIG["CONFIG_APIVERSION"]}/download for ${ip}`);
 			const stream = createReadStream(filePath);
 			const throttle = new Throttle({ rate: 5 * 1024 * 1024 }); // 5 Mbps
 			res.attachment(path.basename(filePath));
@@ -163,7 +186,7 @@ app.get("/api/v1/download", async (req, res) => {
 	}
 });
 
-app.get("/api/v1/raw", async (req, res) => {
+app.get(`/api/${CONFIG["CONFIG_APIVERSION"]}/raw`, async (req, res) => {
 	try {
 		const filePath = sanitizePath(req.query.path);
 		await fs.access(filePath);
@@ -175,7 +198,7 @@ app.get("/api/v1/raw", async (req, res) => {
 		res.type("text/plain");
 
 		if (shouldThrottle) {
-			console.log(`Throttling /api/v1/raw for ${ip}`);
+			console.log(`Throttling /api/${CONFIG["CONFIG_APIVERSION"]}/raw for ${ip}`);
 			const throttle = new Throttle({ rate: 5 * 1024 * 1024 }); // 5 Mbps
 			stream.pipe(throttle).pipe(res);
 		} else {
@@ -187,7 +210,51 @@ app.get("/api/v1/raw", async (req, res) => {
 	}
 });
 
-app.get("/", async (req, res) => {
+app.get(`/api/version`, async (req, res) => {
+	try {
+		const timestamp = Math.floor(Date.now() / 1000);
+		const commitHash = await executeCommand("git rev-parse --short HEAD");
+		const isDirty = await executeCommand("git status --porcelain");
+
+		const remoteInfoRaw = await executeCommand("git remote -v");
+		const remotes = {};
+		remoteInfoRaw.split("\n").forEach((line) => {
+			const [name, url, type] = line.trim().split(/\s+/);
+			if (type === "(fetch)" && !remotes[name]) {
+				remotes[name] = url;
+			}
+		});
+
+		const remoteLines = Object.entries(remotes)
+			.map(([name, url]) => `${name}: ${url}`)
+			.join("\n");
+
+		const versionLine = `API ${CONFIG["CONFIG_APIVERSION"]}-${timestamp}-${commitHash}${isDirty ? "-dirty" : ""}`;
+		const response = `${versionLine}\n${remoteLines}\nlogging: ${CONFIG["CONFIG_LOGGING"]}`;
+
+		res.type("text/plain").send(response);
+	} catch (err) {
+		console.error("Error getting version info:", err);
+		res.status(500).json({ error: "Failed to get version" });
+	}
+});
+
+
+app.get(`/api/commitinfo`, async (req, res) => {
+	if (CONFIG["CONFIG_GITINFO"] !== "true") {
+		return res.status(403).json({ error: "Commit info not enabled" });
+	}
+	try {
+		const commit = await executeCommand("git log -1");
+		res.type("text/plain").send(commit);
+	} catch (err) {
+		console.error("Error getting commit info:", err);
+		res.status(500).json({ error: "Failed to get commit info" });
+	}
+});
+
+
+app.get(`/`, async (req, res) => {
 	const now = new Date().toLocaleString("en-US", {
 		timeZone: "UTC",
 		month: "2-digit",
