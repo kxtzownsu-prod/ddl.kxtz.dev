@@ -16,7 +16,9 @@ fi
 rm -rf node_modules # DANGEROUS, USE SCRIPT_DIR!
 
 cat <<EOF > Dockerfile
-FROM node:18-alpine
+FROM node:24-alpine
+
+RUN apk add git
 
 RUN npm install -g pnpm
 
