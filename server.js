@@ -213,7 +213,7 @@ app.get(`/api/${CONFIG["CONFIG_APIVERSION"]}/raw`, async (req, res) => {
 app.get(`/api/version`, async (req, res) => {
     try {
         const timestamp = Math.floor(Date.now() / 1000);
-        const commitHash = await executeCommand("git rev-parse --short HEAD");
+        const commitHash = await executeCommand("git rev-parse HEAD");
 
         const rawStatus = await executeCommand("git status --porcelain");
         const isDirty = rawStatus.trim().length > 0;
@@ -231,7 +231,7 @@ app.get(`/api/version`, async (req, res) => {
             .map(([name, url]) => `${name}: ${url}`)
             .join("\n");
 
-        const versionLine = `API ${CONFIG["CONFIG_APIVERSION"]}-${timestamp}-${commitHash}${isDirty ? "-dirty" : ""}`;
+        const versionLine = `API ${CONFIG["CONFIG_APIVERSION"]}-${timestamp}-g${commitHash}${isDirty ? "-dirty" : ""}`;
         const response = `${versionLine}\n${remoteLines}\nlogging: ${CONFIG["CONFIG_LOGGING"]}`;
 
         res.type("text/plain").send(response);
