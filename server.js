@@ -211,32 +211,34 @@ app.get(`/api/${CONFIG["CONFIG_APIVERSION"]}/raw`, async (req, res) => {
 });
 
 app.get(`/api/version`, async (req, res) => {
-	try {
-		const timestamp = Math.floor(Date.now() / 1000);
-		const commitHash = await executeCommand("git rev-parse --short HEAD");
-		const isDirty = await executeCommand("git status --porcelain");
+    try {
+        const timestamp = Math.floor(Date.now() / 1000);
+        const commitHash = await executeCommand("git rev-parse --short HEAD");
 
-		const remoteInfoRaw = await executeCommand("git remote -v");
-		const remotes = {};
-		remoteInfoRaw.split("\n").forEach((line) => {
-			const [name, url, type] = line.trim().split(/\s+/);
-			if (type === "(fetch)" && !remotes[name]) {
-				remotes[name] = url;
-			}
-		});
+        const rawStatus = await executeCommand("git status --porcelain");
+        const isDirty = rawStatus.trim().length > 0;
 
-		const remoteLines = Object.entries(remotes)
-			.map(([name, url]) => `${name}: ${url}`)
-			.join("\n");
+        const remoteInfoRaw = await executeCommand("git remote -v");
+        const remotes = {};
+        remoteInfoRaw.split("\n").forEach((line) => {
+            const [name, url, type] = line.trim().split(/\s+/);
+            if (type === "(fetch)" && !remotes[name]) {
+                remotes[name] = url;
+            }
+        });
 
-		const versionLine = `API ${CONFIG["CONFIG_APIVERSION"]}-${timestamp}-${commitHash}${isDirty ? "-dirty" : ""}`;
-		const response = `${versionLine}\n${remoteLines}\nlogging: ${CONFIG["CONFIG_LOGGING"]}`;
+        const remoteLines = Object.entries(remotes)
+            .map(([name, url]) => `${name}: ${url}`)
+            .join("\n");
 
-		res.type("text/plain").send(response);
-	} catch (err) {
-		console.error("Error getting version info:", err);
-		res.status(500).json({ error: "Failed to get version" });
-	}
+        const versionLine = `API ${CONFIG["CONFIG_APIVERSION"]}-${timestamp}-${commitHash}${isDirty ? "-dirty" : ""}`;
+        const response = `${versionLine}\n${remoteLines}\nlogging: ${CONFIG["CONFIG_LOGGING"]}`;
+
+        res.type("text/plain").send(response);
+    } catch (err) {
+        console.error("Error getting version info:", err);
+        res.status(500).json({ error: "Failed to get version" });
+    }
 });
 
 
